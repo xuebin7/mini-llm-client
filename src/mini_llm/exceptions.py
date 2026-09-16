@@ -17,3 +17,15 @@ class LLMAPIError(LLMError):
 
 class LLMRetryExhaustedError(LLMError):
     """All retry attempts were exhausted."""
+    def __init__(
+        self,
+        attempts: int,
+        last_error: Exception,
+    ):
+        super().__init__(
+            f"Retry exhausted after {attempts} attempts: "
+            f"{last_error}"
+        )
+
+        self.attempts = attempts
+        self.last_error = last_error

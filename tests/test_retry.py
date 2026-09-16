@@ -1,6 +1,9 @@
 import pytest
 
-from mini_llm.exceptions import LLMAPIError
+from mini_llm import (
+    LLMAPIError,
+    LLMRetryExhaustedError,
+)
 from mini_llm.retry import retry
 
 def test_retry_until_success(monkeypatch):
@@ -19,8 +22,6 @@ def test_retry_until_success(monkeypatch):
         nonlocal attempts
 
         attempts += 1
-
-        print(f"attempt: {attempts}")
 
         if attempts < 3:
             raise LLMAPIError(
@@ -56,8 +57,6 @@ def test_do_not_retry_401(monkeypatch):
     def fake_request():
         nonlocal attempts
         attempts += 1
-
-        print(f"attempt: {attempts}")
 
         raise LLMAPIError(
             401,
@@ -106,3 +105,60 @@ def test_retry_429(monkeypatch):
     assert result == "success"
     assert attempts == 2
     assert len(delays) == 1
+
+def test_retry_exhausted(monkeypatch):
+    attempts = 0
+    delays = []
+
+    def fake_sleep(seconds):
+        delays.append(seconds)
+
+    monkeypatch.setattr(
+        "mini_llm.retry.time.sleep",
+        fake_sleep,
+    )
+
+    def fake_request():
+        nonlocal attempts
+        attempts += 1
+
+        raise LLMAPIError(
+            503,
+            "Service Unavailable"
+        )
+
+    with pytest.raises(
+        LLMRetryExhaustedError
+    ) as exc_info:
+        retry(
+            fake_request,
+            max_attempts=3,
+        )
+
+    assert attempts == 3
+    assert len(delays) == 2
+
+    assert exc_info.value.attempts == 3
+
+    assert isinstance(
+        exc_info.value.last_error,
+        LLMAPIError,
+    )
+
+    assert (
+        exc_info.value.last_error.status_code == 503
+    )
+
+def test_invalid_max_attempts():
+    def fake_request():
+        return "success"
+
+    with pytest.raises(ValueError) as exc_info:
+        retry(
+            fake_request,
+            max_attempts=0,
+        )
+
+    assert (
+        str(exc_info.value) == "max_attempts must be at least 1"
+    )

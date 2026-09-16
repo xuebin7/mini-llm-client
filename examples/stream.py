@@ -9,14 +9,9 @@ client = LLMClient(
 
 request = ChatRequest(
     model=os.environ["LLM_MODEL"],
-    messages=[
-        Message(
-            role="user",
-            content="用一句话解释什么是 Redis。"
-        )
-    ],
+    messages=[Message(role="user", content="用一句话解释什么是 Redis。")],
 )
 
-response = client.chat(request)
-
-print(response.content)
+for text in client.stream(request):
+    print(text, end="", flush=True)
+print()

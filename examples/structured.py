@@ -2,8 +2,7 @@ import os
 
 from pydantic import BaseModel
 
-from mini_llm.client import LLMClient
-from mini_llm.models import ChatRequest, Message
+from mini_llm import ChatRequest, LLMClient, Message
 
 class Person(BaseModel):
     name: str

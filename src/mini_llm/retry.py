@@ -3,7 +3,11 @@ import time
 from collections.abc import Callable
 from typing import TypeVar
 
-from mini_llm.exceptions import LLMAPIError, LLMTimeoutError
+from .exceptions import (
+    LLMAPIError,
+    LLMRetryExhaustedError,
+    LLMTimeoutError,
+)
 
 T = TypeVar("T")
 
@@ -29,7 +33,12 @@ def retry(
         func: Callable[[], T],
         max_attempts: int = 3,
         base_delay: float = 1.0,
+        jitter: float = 0.5,
 ) -> T:
+    if max_attempts < 1:
+        raise ValueError(
+            "max_attempts must be at least 1"
+        )
     last_error: Exception | None = None
 
     for attempt in range(max_attempts):
@@ -42,9 +51,12 @@ def retry(
                 raise
 
             if attempt < max_attempts - 1:
-                jitter = random.uniform(0, 0.5)
-                delay = (base_delay * (2 ** attempt) + jitter)
-                print(f"retry after {delay:.2f}s")
+                delay = (base_delay * (2 ** attempt) + random.uniform(0, jitter))
                 time.sleep(delay)
 
-    raise last_error
+    assert last_error is not None
+
+    raise LLMRetryExhaustedError(
+        attempts=max_attempts,
+        last_error=last_error,
+    ) from last_error

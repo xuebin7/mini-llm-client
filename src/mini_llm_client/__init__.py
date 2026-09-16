@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from mini-llm-client!")
+    """Reserved entry point for a future command-line interface."""
