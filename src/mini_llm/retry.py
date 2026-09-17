@@ -20,6 +20,7 @@ RETRYABLE_STATUS_CODES = {
     504,
 }
 
+
 def is_retryable(exc: Exception) -> bool:
     if isinstance(exc, LLMTimeoutError):
         return True
@@ -29,16 +30,15 @@ def is_retryable(exc: Exception) -> bool:
 
     return False
 
-def retry(
-        func: Callable[[], T],
-        max_attempts: int = 3,
-        base_delay: float = 1.0,
-        jitter: float = 0.5,
+
+def retry[T](
+    func: Callable[[], T],
+    max_attempts: int = 3,
+    base_delay: float = 1.0,
+    jitter: float = 0.5,
 ) -> T:
     if max_attempts < 1:
-        raise ValueError(
-            "max_attempts must be at least 1"
-        )
+        raise ValueError("max_attempts must be at least 1")
     last_error: Exception | None = None
 
     for attempt in range(max_attempts):
@@ -51,7 +51,7 @@ def retry(
                 raise
 
             if attempt < max_attempts - 1:
-                delay = (base_delay * (2 ** attempt) + random.uniform(0, jitter))
+                delay = base_delay * (2**attempt) + random.uniform(0, jitter)
                 time.sleep(delay)
 
     assert last_error is not None

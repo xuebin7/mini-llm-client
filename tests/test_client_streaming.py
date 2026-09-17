@@ -4,7 +4,11 @@ import httpx
 import pytest
 
 from mini_llm import (
-    ChatRequest, LLMAPIError, LLMClient, LLMTimeoutError, Message,
+    ChatRequest,
+    LLMAPIError,
+    LLMClient,
+    LLMTimeoutError,
+    Message,
 )
 
 
@@ -51,10 +55,12 @@ def install_stream(monkeypatch, response):
 
 
 def test_stream_preserves_request_options_and_closes(monkeypatch, chat_request):
-    body = ResponseStream([
-        b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
-        b'data: [DONE]\n\n',
-    ])
+    body = ResponseStream(
+        [
+            b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+    )
     calls = install_stream(monkeypatch, httpx.Response(200, stream=body))
     before = chat_request.model_dump()
     client = LLMClient("https://example.com/", "test-key", timeout=7)
@@ -71,7 +77,7 @@ def test_stream_preserves_request_options_and_closes(monkeypatch, chat_request):
 
 @pytest.mark.parametrize("status", [401, 503])
 def test_stream_reads_error_body_and_does_not_retry(monkeypatch, chat_request, status):
-    body = ResponseStream([b'provider error details'])
+    body = ResponseStream([b"provider error details"])
     response = httpx.Response(status, stream=body)
     calls = install_stream(monkeypatch, response)
     with pytest.raises(LLMAPIError) as caught:
@@ -116,10 +122,12 @@ def test_stream_translates_body_timeout_and_closes(monkeypatch, chat_request, st
 
 
 def test_explicit_iterator_close_releases_response(monkeypatch, chat_request):
-    body = ResponseStream([
-        b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
-        b'data: {"choices":[{"delta":{"content":" world"}}]}\n\n',
-    ])
+    body = ResponseStream(
+        [
+            b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+            b'data: {"choices":[{"delta":{"content":" world"}}]}\n\n',
+        ]
+    )
     install_stream(monkeypatch, httpx.Response(200, stream=body))
     iterator = LLMClient("https://example.com", "test-key").stream(chat_request)
     assert next(iterator) == "Hello"

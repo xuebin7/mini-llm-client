@@ -116,9 +116,18 @@ def test_structured_sends_correct_format_without_mutation_or_logging(
 
     def fake_post(url, **kwargs):
         calls.append(kwargs["json"])
-        return httpx.Response(200, json={"choices": [{"message": {
-            "content": '{"name":"Alice","age":30,"job":"Engineer"}'
-        }}]})
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"name":"Alice","age":30,"job":"Engineer"}'
+                        }
+                    }
+                ]
+            },
+        )
 
     monkeypatch.setattr("mini_llm.client.httpx.post", fake_post)
     client = LLMClient("https://example.com", "test-key")
@@ -126,8 +135,10 @@ def test_structured_sends_correct_format_without_mutation_or_logging(
     options = {} if mode == "json_object" else {"mode": mode}
     result = client.structured(request, Person, **options)
     assert result == Person(name="Alice", age=30, job="Engineer")
-    expected = {"type": "json_object"} if mode == "json_object" else (
-        LLMClient.schema_to_response_format(Person)
+    expected = (
+        {"type": "json_object"}
+        if mode == "json_object"
+        else (LLMClient.schema_to_response_format(Person))
     )
     assert calls[0]["response_format"] == expected
     assert calls[0]["temperature"] == 0
@@ -147,18 +158,24 @@ def test_structured_rejects_invalid_mode_before_request(monkeypatch):
         )
 
 
-@pytest.mark.parametrize(("content", "error_type"), [
-    ("not JSON", json.JSONDecodeError),
-    ('{"name":"Alice","age":"invalid","job":"Engineer"}', ValidationError),
-])
+@pytest.mark.parametrize(
+    ("content", "error_type"),
+    [
+        ("not JSON", json.JSONDecodeError),
+        ('{"name":"Alice","age":"invalid","job":"Engineer"}', ValidationError),
+    ],
+)
 def test_structured_does_not_retry_invalid_output(monkeypatch, content, error_type):
     calls = []
 
     def fake_post(*args, **kwargs):
         calls.append(1)
-        return httpx.Response(200, json={
-            "choices": [{"message": {"content": content}}],
-        })
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": content}}],
+            },
+        )
 
     monkeypatch.setattr("mini_llm.client.httpx.post", fake_post)
     request = ChatRequest(model="test-model", messages=[])

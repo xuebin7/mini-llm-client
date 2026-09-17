@@ -47,7 +47,7 @@ def build_response_format(schema: type[BaseModel]) -> dict[str, Any]:
         prefix = "#/$defs/"
         reference = root["$ref"]
         if reference.startswith(prefix):
-            root = json_schema.get("$defs", {}).get(reference[len(prefix):], {})
+            root = json_schema.get("$defs", {}).get(reference[len(prefix) :], {})
     if root.get("type") != "object" or "anyOf" in root:
         raise ValueError("Strict JSON Schema requires an object model at the root")
     _make_strict(json_schema)
