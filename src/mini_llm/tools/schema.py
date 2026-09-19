@@ -13,9 +13,12 @@ class ToolSchema:
     handler: ToolHandler
 
     def to_openai_tool(self) -> dict[str, Any]:
+        """Export a function tool for the Chat Completions API."""
         return {
             "type": "function",
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.parameters,
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            },
         }

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from mini_llm.tools.schema import ToolSchema
+
 
 def search_code(
     query: str,
@@ -48,3 +50,26 @@ def search_code(
                 )
 
     return results
+
+
+SEARCH_CODE_TOOL = ToolSchema(
+    name="search_code",
+    description="Search text files recursively for a string.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Text to search for.",
+            },
+            "path": {
+                "type": "string",
+                "description": "File or directory to search.",
+                "default": ".",
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+    handler=search_code,
+)

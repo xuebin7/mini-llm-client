@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from mini_llm.tools.schema import ToolSchema
+
 
 def read_file(
     path: str,
@@ -53,3 +55,33 @@ def read_file(
     end_index = len(lines) if end_line is None else end_line
 
     return "".join(lines[start_index:end_index])
+
+
+READ_FILE_TOOL = ToolSchema(
+    name="read_file",
+    description=(
+        "Read a UTF-8 text file.Optionally read a specific inclusive line range."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Path to the file to read.",
+            },
+            "start_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional 1-based starting line number.",
+            },
+            "end_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional 1-based ending line number, inclusive.",
+            },
+        },
+        "required": ["path"],
+        "additionalProperties": False,
+    },
+    handler=read_file,
+)
