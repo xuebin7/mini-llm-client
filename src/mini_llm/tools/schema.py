@@ -16,9 +16,7 @@ class ToolSchema:
         """Export a function tool for the Chat Completions API."""
         return {
             "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters,
-            },
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
         }

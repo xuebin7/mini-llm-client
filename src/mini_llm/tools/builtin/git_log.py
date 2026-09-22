@@ -56,7 +56,7 @@ def git_log(
         raise RuntimeError("Git command timed out") from exc
 
     if result.returncode != 0:
-        error = result.stderr.strip() or "Git command faild"
+        error = result.stderr.strip() or "Git command failed"
         raise RuntimeError(error)
 
     commits: list[dict[str, str]] = []

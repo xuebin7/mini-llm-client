@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from mini_llm import ChatRequest, LLMAPIError, LLMClient, Message
+from mini_llm.models import ResponseRequest, ResponseResult
 
 
 @pytest.mark.parametrize(
@@ -192,3 +193,124 @@ def test_chat_retry_timeout_then_success(monkeypatch):
     assert response.content == "hello"
     assert attempts == 2
     assert len(delays) == 1
+
+
+def test_responses_parses_text_response(monkeypatch):
+    captured = []
+
+    def fake_post(url, **kwargs):
+        captured.append((url, kwargs))
+
+        return httpx.Response(
+            200,
+            json={
+                "id": "resp_123",
+                "model": "test-model",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": "hello"}],
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr("mini_llm.client.httpx.post", fake_post)
+
+    request = ResponseRequest(
+        input="Hello",
+        model="test-model",
+    )
+
+    client = LLMClient("https://example.com/", "test-key", timeout=5)
+    result = client.responses(request)
+
+    assert result.text == "hello"
+    assert result.model == "test-model"
+    assert result.response_id == "resp_123"
+    assert result.tool_calls == []
+
+    url, kwargs = captured[0]
+
+    assert url == "https://example.com/responses"
+
+    assert kwargs["json"] == {
+        "input": "Hello",
+        "model": "test-model",
+    }
+
+    assert kwargs["timeout"] == 5
+    assert kwargs["headers"]["Authorization"] == "Bearer test-key"
+
+
+def test_responses_parses_tool_call(monkeypatch):
+    captured = []
+
+    def fake_post(url, **kwargs):
+        captured.append((url, kwargs))
+
+        return httpx.Response(
+            status_code=200,
+            json={
+                "id": "resp_123",
+                "model": "test-model",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "call_id": "call_123",
+                        "name": "git_log",
+                        "arguments": '{"path": ".", "max_count": 3}',
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "mini_llm.client.httpx.post",
+        fake_post,
+    )
+
+    request = ResponseRequest(
+        model="test-model",
+        input="Show me the latest 3 git commits.",
+        tools=[
+            {
+                "type": "function",
+                "name": "git_log",
+                "description": "Read recent Git commit history",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                        },
+                        "max_count": {
+                            "type": "integer",
+                        },
+                    },
+                    "additionalProperties": False,
+                },
+            }
+        ],
+    )
+
+    client = LLMClient(base_url="https://example.com/", api_key="test-key", timeout=5)
+
+    result = client.responses(request)
+
+    assert result.text is None
+    assert len(result.tool_calls) == 1
+
+    tool_call = result.tool_calls[0]
+
+    assert tool_call.call_id == "call_123"
+    assert tool_call.name == "git_log"
+    assert tool_call.arguments == '{"path": ".", "max_count": 3}'
+
+    assert result.response_id == "resp_123"
+    assert result.model == "test-model"
+
+    url, kwargs = captured[0]
+
+    assert url == "https://example.com/responses"
+    assert kwargs["json"]["tools"][0]["name"] == "git_log"

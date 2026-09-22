@@ -12,28 +12,33 @@ def test_builtin_tools_are_json_serializable():
     registry.register(READ_FILE_TOOL)
     registry.register(SEARCH_CODE_TOOL)
 
-    tools = registry.openai_tools()
+    tools = registry.to_openai_tools()
 
     assert json.loads(json.dumps(tools)) == tools
 
 
-def test_builtin_tools_use_chat_completions_format():
+def test_builtin_tools_use_responses_api_format():
     registry = ToolRegistry()
     registry.register(READ_FILE_TOOL)
     registry.register(SEARCH_CODE_TOOL)
 
-    tools = registry.openai_tools()
+    tools = registry.to_openai_tools()
 
     assert len(tools) == 2
+
     for exported, tool in zip(tools, (READ_FILE_TOOL, SEARCH_CODE_TOOL), strict=True):
-        assert set(exported) == {"type", "function"}
+        assert set(exported) == {
+            "type",
+            "name",
+            "description",
+            "parameters",
+        }
+
         assert exported["type"] == "function"
-        function = exported["function"]
-        assert set(function) == {"name", "description", "parameters"}
-        assert function["name"] == tool.name
-        assert function["description"] == tool.description
-        assert function["parameters"] == tool.parameters
-        assert function["parameters"]["type"] == "object"
+        assert exported["name"] == tool.name
+        assert exported["description"] == tool.description
+        assert exported["parameters"] == tool.parameters
+        assert exported["parameters"]["type"] == "object"
 
 
 def test_execute_search_code(tmp_path: Path):

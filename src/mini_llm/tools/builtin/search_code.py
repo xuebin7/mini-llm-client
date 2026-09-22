@@ -2,10 +2,18 @@ from pathlib import Path
 
 from mini_llm.tools.schema import ToolSchema
 
+DEFAULT_EXCLUDE_DIRS = [
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+]
+
 
 def search_code(
     query: str,
     path: str = ".",
+    max_results: int = 50,
 ) -> list[dict[str, str | int]]:
     """
     Search text files recursively for a string.
@@ -34,7 +42,12 @@ def search_code(
 
     files = [root] if root.is_file() else root.rglob("*")
 
+    max_results: int = 50
+
     for file_path in files:
+        if any(part in DEFAULT_EXCLUDE_DIRS for part in file_path.parts):
+            continue
+
         if not file_path.is_file():
             continue
 
@@ -49,7 +62,10 @@ def search_code(
                     {"path": str(file_path), "line": line_number, "content": line}
                 )
 
-    return results
+                if len(results) >= max_results:
+                    return results
+
+        return results
 
 
 SEARCH_CODE_TOOL = ToolSchema(
@@ -66,6 +82,13 @@ SEARCH_CODE_TOOL = ToolSchema(
                 "type": "string",
                 "description": "File or directory to search.",
                 "default": ".",
+            },
+            "max_results": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 50,
+                "description": "Maximum number of matches to return.",
             },
         },
         "required": ["query"],
