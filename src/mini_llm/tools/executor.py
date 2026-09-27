@@ -1,3 +1,4 @@
+import inspect
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,10 +17,10 @@ class ToolExecutor:
     def __init__(self, registry: ToolRegistry) -> None:
         self.registry = registry
 
-    def execute(
+    async def execute(
         self,
         tool_name: str,
-        arguments: dict,
+        arguments: dict[str, Any],
     ) -> ToolResult:
 
         try:
@@ -33,6 +34,9 @@ class ToolExecutor:
 
         try:
             output = tool.handler(**arguments)
+
+            if inspect.isawaitable(output):
+                output = await output
 
             return ToolResult(
                 tool_name=tool_name,

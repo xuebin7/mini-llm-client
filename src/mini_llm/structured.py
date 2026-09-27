@@ -1,11 +1,9 @@
 """JSON response formats and local Pydantic validation."""
 
 import json
-from typing import Any, TypeVar
+from typing import Any
 
 from pydantic import BaseModel
-
-T = TypeVar("T", bound=BaseModel)
 
 
 def _make_strict(node: dict[str, Any]) -> None:
@@ -61,7 +59,7 @@ def build_response_format(schema: type[BaseModel]) -> dict[str, Any]:
     }
 
 
-def parse_structured_output(content: str, schema: type[T]) -> T:
+def parse_structured_output[T: BaseModel](content: str, schema: type[T]) -> T:
     """Parse JSON, then validate it using the model's Pydantic configuration.
 
     JSONDecodeError and ValidationError intentionally retain their distinct

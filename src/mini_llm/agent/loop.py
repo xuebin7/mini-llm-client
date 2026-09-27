@@ -23,7 +23,7 @@ class AgentLoop:
         self.model = model
         self.max_steps = max_steps
 
-    def run(self, user_input: str) -> str:
+    async def run(self, user_input: str) -> str:
         input_items: str | list[dict] = user_input
 
         for step in range(self.max_steps):
@@ -54,7 +54,7 @@ class AgentLoop:
 
             for tool_call in response.tool_calls:
                 print(f"[tool] calling {tool_call.name} with {tool_call.arguments}")
-                result = execute_tool_call(
+                result = await execute_tool_call(
                     tool_call,
                     self.executor,
                 )

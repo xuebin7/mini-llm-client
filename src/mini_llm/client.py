@@ -98,16 +98,18 @@ class LLMClient:
 
         Exhaust or explicitly close the iterator to release the connection.
         """
-        with self._translate_timeout():
-            with httpx.stream(
+        with (
+            self._translate_timeout(),
+            httpx.stream(
                 "POST",
                 f"{self.base_url}/chat/completions",
                 headers=self._headers(),
                 json=self._payload(request, stream=True),
                 timeout=self.timeout,
-            ) as response:
-                self._raise_for_status(response)
-                yield from StreamParser().parse(response.iter_lines())
+            ) as response,
+        ):
+            self._raise_for_status(response)
+            yield from StreamParser().parse(response.iter_lines())
 
     @staticmethod
     def schema_to_response_format(schema: type[BaseModel]) -> dict[str, Any]:

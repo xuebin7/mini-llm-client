@@ -81,7 +81,7 @@ def test_search_code_empty_query(tmp_path: Path):
     file_path.write_text("class ToolExecutor:\n   pass\n", encoding="utf-8")
 
     with pytest.raises(ValueError) as exc_info:
-        result = search_code(
+        search_code(
             "",
             str(tmp_path),
         )

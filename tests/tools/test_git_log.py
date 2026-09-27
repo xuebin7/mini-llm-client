@@ -1,10 +1,10 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
-from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL, git_log
+from mini_llm.tools.builtin.git_log import git_log
 
 
 def test_import_outside_repository(tmp_path: Path):
@@ -13,8 +13,10 @@ def test_import_outside_repository(tmp_path: Path):
         [
             sys.executable,
             "-c",
-            "import sys; sys.path.insert(0, sys.argv[1]); "
-            "from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL",
+            (
+                "import sys; sys.path.insert(0, sys.argv[1]); "
+                + "from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL",
+            ),
             str(source_path),
         ],
         cwd=tmp_path,
@@ -22,6 +24,7 @@ def test_import_outside_repository(tmp_path: Path):
         text=True,
         encoding="utf-8",
         timeout=10,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr

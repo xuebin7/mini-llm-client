@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from mini_llm.agent.runtime import execute_tool_call, tool_result_to_output
 from mini_llm.models import ToolCall
 from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
@@ -8,7 +10,8 @@ from mini_llm.tools.executor import ToolExecutor, ToolResult
 from mini_llm.tools.registry import ToolRegistry
 
 
-def test_execute_tool_call(tmp_path: Path):
+@pytest.mark.asyncio
+async def test_execute_tool_call(tmp_path: Path):
     file_path = tmp_path / "hello.txt"
     file_path.write_text(
         "hello\nworld\n",
@@ -32,7 +35,7 @@ def test_execute_tool_call(tmp_path: Path):
         ),
     )
 
-    result = execute_tool_call(
+    result = await execute_tool_call(
         tool_call=tool_call,
         executor=executor,
     )
@@ -42,7 +45,8 @@ def test_execute_tool_call(tmp_path: Path):
     assert result.output == "world\n"
 
 
-def test_execute_tool_call_invalid_json():
+@pytest.mark.asyncio
+async def test_execute_tool_call_invalid_json():
     registry = ToolRegistry()
     registry.register(READ_FILE_TOOL)
 
@@ -54,7 +58,7 @@ def test_execute_tool_call_invalid_json():
         arguments="not valid json",
     )
 
-    result = execute_tool_call(
+    result = await execute_tool_call(
         tool_call,
         executor,
     )
@@ -64,7 +68,8 @@ def test_execute_tool_call_invalid_json():
     assert "Invalid tool arguments JSON" in result.error
 
 
-def test_execute_tool_call_arguments_must_be_object():
+@pytest.mark.asyncio
+async def test_execute_tool_call_arguments_must_be_object():
     registry = ToolRegistry()
     registry.register(READ_FILE_TOOL)
 
@@ -76,7 +81,7 @@ def test_execute_tool_call_arguments_must_be_object():
         arguments='["hello", "world"]',
     )
 
-    result = execute_tool_call(
+    result = await execute_tool_call(
         tool_call,
         executor,
     )

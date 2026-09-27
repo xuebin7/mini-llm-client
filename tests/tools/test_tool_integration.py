@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
 from mini_llm.tools.builtin.search_code import SEARCH_CODE_TOOL
 from mini_llm.tools.executor import ToolExecutor
@@ -41,7 +43,8 @@ def test_builtin_tools_use_responses_api_format():
         assert exported["parameters"]["type"] == "object"
 
 
-def test_execute_search_code(tmp_path: Path):
+@pytest.mark.asyncio
+async def test_execute_search_code(tmp_path: Path):
     file_path = tmp_path / "example.py"
     file_path.write_text("class ToolExecutor:\n    pass\n", encoding="utf-8")
 
@@ -50,7 +53,7 @@ def test_execute_search_code(tmp_path: Path):
 
     executor = ToolExecutor(registry)
 
-    result = executor.execute(
+    result = await executor.execute(
         "search_code",
         {
             "query": "ToolExecutor",
@@ -65,7 +68,8 @@ def test_execute_search_code(tmp_path: Path):
     assert result.output[0]["line"] == 1
 
 
-def test_execute_read_file(tmp_path: Path):
+@pytest.mark.asyncio
+async def test_execute_read_file(tmp_path: Path):
     file_path = tmp_path / "hello.txt"
     file_path.write_text("hello\nworld\n", encoding="utf-8")
 
@@ -74,8 +78,9 @@ def test_execute_read_file(tmp_path: Path):
 
     executor = ToolExecutor(registry=registry)
 
-    result = executor.execute(
-        "read_file", {"path": str(file_path), "start_line": 2, "end_line": 2}
+    result = await executor.execute(
+        "read_file",
+        {"path": str(file_path), "start_line": 2, "end_line": 2},
     )
 
     assert result.success is True
@@ -83,13 +88,16 @@ def test_execute_read_file(tmp_path: Path):
     assert result.output == "world\n"
 
 
-def test_read_file_failure(tmp_path: Path):
+@pytest.mark.asyncio
+async def test_read_file_failure(tmp_path: Path):
     registry = ToolRegistry()
     registry.register(READ_FILE_TOOL)
 
     executor = ToolExecutor(registry=registry)
 
-    result = executor.execute("read_file", {"path": str(tmp_path / "missing.txt")})
+    result = await executor.execute(
+        "read_file", {"path": str(tmp_path / "missing.txt")}
+    )
 
     assert result.success is False
     assert result.output is None
@@ -97,11 +105,12 @@ def test_read_file_failure(tmp_path: Path):
     assert "File not found" in result.error
 
 
-def test_execute_unknown_tool():
+@pytest.mark.asyncio
+async def test_execute_unknown_tool():
     registry = ToolRegistry()
     executor = ToolExecutor(registry=registry)
 
-    result = executor.execute(
+    result = await executor.execute(
         "unknown tool",
         {},
     )

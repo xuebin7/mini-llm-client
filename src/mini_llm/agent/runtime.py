@@ -5,7 +5,7 @@ from mini_llm.models import ToolCall
 from mini_llm.tools.executor import ToolExecutor, ToolResult
 
 
-def execute_tool_call(
+async def execute_tool_call(
     tool_call: ToolCall,
     executor: ToolExecutor,
 ) -> ToolResult:
@@ -25,7 +25,7 @@ def execute_tool_call(
             error="Tool arguments must be a JSON object",
         )
 
-    return executor.execute(
+    return await executor.execute(
         tool_name=tool_call.name,
         arguments=arguments,
     )

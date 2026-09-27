@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from mini_llm import ChatRequest, LLMAPIError, LLMClient, Message
-from mini_llm.models import ResponseRequest, ResponseResult
+from mini_llm.models import ResponseRequest
 
 
 @pytest.mark.parametrize(
