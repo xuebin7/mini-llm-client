@@ -71,6 +71,20 @@ class FakeLLMClient:
         )
 
 
+class FakeContextManager:
+    def __init__(self):
+        self.prepare_called = False
+        self.truncate_called = False
+
+    def prepare(self, items):
+        self.prepare_called = True
+        return items
+
+    def truncate_tool_result(self, text):
+        self.truncate_called = True
+        return text
+
+
 @pytest.mark.asyncio
 async def test_agent_oog_executes_tool_returns_answer(tmp_path: Path):
     file_path = tmp_path / "hello.txt"
@@ -84,15 +98,20 @@ async def test_agent_oog_executes_tool_returns_answer(tmp_path: Path):
 
     client = FakeLLMClient(file_path)
 
+    context_manager = FakeContextManager()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
+        context_manager=context_manager,
         model="test-model",
     )
 
     result = await agent.run("Read the file.")
 
     assert result == "The file says hello."
+    assert context_manager.prepare_called
+    assert context_manager.truncate_called
 
 
 class FakeRecoveryLLMClient:
@@ -193,9 +212,12 @@ async def test_agent_loop_recovers_from_tool_failure(tmp_path: Path):
 
     client = FakeRecoveryLLMClient(tmp_path)
 
+    context_manager = FakeContextManager()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
+        context_manager=context_manager,
         model="test-model",
     )
 
@@ -266,9 +288,12 @@ async def test_unknown_loop_handles_unknown_tool():
     registry = ToolRegistry()
     client = FakeUnknownToolClient()
 
+    context_manager = FakeContextManager()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
+        context_manager=context_manager,
         model="test-model",
     )
 
@@ -329,9 +354,12 @@ async def test_agent_loop_stops_at_max_steps():
 
     client = FakeInfiniteToolClient()
 
+    context_manager = FakeContextManager()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
+        context_manager=context_manager,
         model="test-model",
         max_steps=3,
     )
@@ -457,9 +485,12 @@ async def test_agent_loop_can_use_native_and_mcp_tools(tmp_path: Path):
 
         client = FakeNativeMCPClient(file_path)
 
+        context_manager = FakeContextManager()
+
         agent = AgentLoop(
             client=client,
             registry=registry,
+            context_manager=context_manager,
             model="test-model",
         )
 

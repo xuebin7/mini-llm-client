@@ -3,6 +3,7 @@ from mini_llm.agent.runtime import (
     execute_tool_call,
     tool_result_to_output,
 )
+from mini_llm.context.manager import ContextManager
 from mini_llm.models import ResponseRequest
 from mini_llm.tools.executor import ToolExecutor
 from mini_llm.tools.registry import ToolRegistry
@@ -13,12 +14,14 @@ class AgentLoop:
         self,
         client: ResponsesClient,
         registry: ToolRegistry,
+        context_manager: ContextManager,
         *,
         model: str,
         max_steps: int = 10,
     ) -> None:
         self.client = client
         self.registry = registry
+        self.context_manager = context_manager
         self.executor = ToolExecutor(registry)
         self.model = model
         self.max_steps = max_steps
@@ -27,9 +30,14 @@ class AgentLoop:
         input_items: str | list[dict] = user_input
 
         for step in range(self.max_steps):
+            prepared_input = input_items
+
+            if isinstance(input_items, list):
+                prepared_input = self.context_manager.prepare(items=input_items)
+
             request = ResponseRequest(
                 model=self.model,
-                input=input_items,
+                input=prepared_input,
                 tools=self.registry.to_openai_tools(),
             )
 
@@ -64,6 +72,11 @@ class AgentLoop:
                     f"output={result.output} "
                     f"error={result.error}"
                 )
+
+                if result.success and result.output is not None:
+                    result.output = self.context_manager.truncate_tool_result(
+                        str(result.output)
+                    )
 
                 input_items.append(
                     tool_result_to_output(

@@ -15,7 +15,7 @@ def test_import_outside_repository(tmp_path: Path):
             "-c",
             (
                 "import sys; sys.path.insert(0, sys.argv[1]); "
-                + "from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL",
+                + "from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL"
             ),
             str(source_path),
         ],
