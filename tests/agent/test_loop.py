@@ -6,6 +6,8 @@ import pytest
 from mcp import StdioServerParameters
 
 from mini_llm.agent.loop import AgentLoop
+from mini_llm.harness.collector import CollectingEventSink
+from mini_llm.harness.events import EventType
 from mini_llm.mcp_integration.adapter import register_mcp_tools
 from mini_llm.mcp_integration.client import MCPClient
 from mini_llm.models import ResponseResult, ToolCall
@@ -114,6 +116,51 @@ async def test_agent_oog_executes_tool_returns_answer(tmp_path: Path):
     assert context_manager.truncate_called
 
 
+@pytest.mark.asyncio
+async def test_agent_loop_emits_tool_events(tmp_path: Path):
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text(
+        "hello",
+        encoding="utf-8",
+    )
+
+    registry = ToolRegistry()
+    registry.register(READ_FILE_TOOL)
+
+    client = FakeLLMClient(file_path)
+
+    context_manager = FakeContextManager()
+
+    sink = CollectingEventSink()
+
+    agent = AgentLoop(
+        client=client,
+        registry=registry,
+        context_manager=context_manager,
+        model="test-model",
+        event_sink=sink,
+    )
+
+    result = await agent.run("Read the file.")
+
+    assert [event.type for event in sink.events] == [
+        EventType.TURN_STARTED,
+        EventType.TOOL_STARTED,
+        EventType.TOOL_COMPLETED,
+        EventType.AGENT_MESSAGE,
+        EventType.TURN_COMPLETED,
+    ]
+
+    tool_started = sink.events[1]
+    tool_completed = sink.events[2]
+    agent_message = sink.events[-2]
+
+    assert tool_started.data["tool_name"] == "read_file"
+    assert tool_completed.data["tool_name"] == "read_file"
+    assert tool_started.data["call_id"] == tool_completed.data["call_id"]
+    assert agent_message.data["text"] == "The file says hello."
+
+
 class FakeRecoveryLLMClient:
     def __init__(self, search_path: Path):
         self.search_path = search_path
@@ -214,11 +261,14 @@ async def test_agent_loop_recovers_from_tool_failure(tmp_path: Path):
 
     context_manager = FakeContextManager()
 
+    sink = CollectingEventSink()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
         context_manager=context_manager,
         model="test-model",
+        event_sink=sink,
     )
 
     result = await agent.run("Find ToolExecutor.")
@@ -241,6 +291,21 @@ async def test_agent_loop_recovers_from_tool_failure(tmp_path: Path):
 
     assert failure["success"] is False
     assert "File not found" in failure["error"]
+
+    assert [event.type for event in sink.events] == [
+        EventType.TURN_STARTED,
+        EventType.TOOL_STARTED,
+        EventType.TOOL_FAILED,
+        EventType.TOOL_STARTED,
+        EventType.TOOL_COMPLETED,
+        EventType.AGENT_MESSAGE,
+        EventType.TURN_COMPLETED,
+    ]
+
+    agent_message = sink.events[-2]
+
+    assert agent_message.type == EventType.AGENT_MESSAGE
+    assert agent_message.data["text"] == "I found ToolExecutor in executor.py."
 
 
 class FakeUnknownToolClient:
@@ -356,11 +421,14 @@ async def test_agent_loop_stops_at_max_steps():
 
     context_manager = FakeContextManager()
 
+    sink = CollectingEventSink()
+
     agent = AgentLoop(
         client=client,
         registry=registry,
         context_manager=context_manager,
         model="test-model",
+        event_sink=sink,
         max_steps=3,
     )
 
@@ -368,9 +436,18 @@ async def test_agent_loop_stops_at_max_steps():
         RuntimeError,
         match="Agent exceeded max_steps=3",
     ):
-        await agent.run("Keep reading the file.")
+        await agent.run(
+            user_input="Keep reading the file.",
+            thread_id="thread_123",
+            turn_id="turn_123",
+        )
 
     assert client.call_count == 3
+
+    assert sink.events[0].type == EventType.TURN_STARTED
+    assert sink.events[-1].type == EventType.TURN_FAILED
+    assert sink.events[-1].data["reason"] == "max_steps_exceeded"
+    assert sink.events[-1].data["max_steps"] == agent.max_steps
 
 
 class FakeNativeMCPClient:
@@ -518,3 +595,126 @@ async def test_agent_loop_can_use_native_and_mcp_tools(tmp_path: Path):
         ]
 
         assert len(tool_outputs) == 2
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_emits_turn_events(tmp_path: Path):
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text(
+        "hello",
+        encoding="utf-8",
+    )
+
+    registry = ToolRegistry()
+    registry.register(READ_FILE_TOOL)
+
+    client = FakeLLMClient(file_path)
+
+    context_manager = FakeContextManager()
+
+    sink = CollectingEventSink()
+
+    agent = AgentLoop(
+        client=client,
+        registry=registry,
+        context_manager=context_manager,
+        model="test-model",
+        event_sink=sink,
+    )
+
+    result = await agent.run(
+        user_input="Read the file.",
+        thread_id="thread_123",
+        turn_id="turn_123",
+    )
+
+    assert result is not None
+    assert sink.events[0].type == EventType.TURN_STARTED
+    assert sink.events[-1].type == EventType.TURN_COMPLETED
+
+    assert sink.events[0].thread_id == "thread_123"
+    assert sink.events[0].turn_id == "turn_123"
+
+    assert sink.events[-1].thread_id == "thread_123"
+    assert sink.events[-1].turn_id == "turn_123"
+
+
+@pytest.mark.asyncio
+async def test_run_event_sink_overrides_default_sink(tmp_path: Path):
+    default_sink = CollectingEventSink()
+    run_sink = CollectingEventSink()
+
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text(
+        "hello",
+        encoding="utf-8",
+    )
+
+    registry = ToolRegistry()
+    registry.register(READ_FILE_TOOL)
+
+    client = FakeLLMClient(file_path)
+
+    context_manager = FakeContextManager()
+
+    agent = AgentLoop(
+        client=client,
+        registry=registry,
+        context_manager=context_manager,
+        model="test-model",
+        event_sink=default_sink,
+    )
+
+    result = await agent.run(
+        user_input="Read the file.",
+        thread_id="thread_123",
+        turn_id="turn_123",
+        event_sink=run_sink,
+    )
+
+    assert result is not None
+    assert default_sink.events == []
+    assert [event.type for event in run_sink.events] == [
+        EventType.TURN_STARTED,
+        EventType.TOOL_STARTED,
+        EventType.TOOL_COMPLETED,
+        EventType.AGENT_MESSAGE,
+        EventType.TURN_COMPLETED,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_run_uses_default_sink_when_no_run_sink(tmp_path: Path):
+    default_sink = CollectingEventSink()
+
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text(
+        "hello",
+        encoding="utf-8",
+    )
+
+    registry = ToolRegistry()
+    registry.register(READ_FILE_TOOL)
+
+    client = FakeLLMClient(file_path)
+
+    context_manager = FakeContextManager()
+
+    agent = AgentLoop(
+        client=client,
+        registry=registry,
+        context_manager=context_manager,
+        model="test-model",
+        event_sink=default_sink,
+    )
+
+    assert default_sink.events == []
+
+    await agent.run(
+        user_input="Read the file.",
+        thread_id="thread_123",
+        turn_id="turn_123",
+    )
+
+    assert default_sink.events[0].type == EventType.TURN_STARTED
+    assert default_sink.events[-1].type == EventType.TURN_COMPLETED

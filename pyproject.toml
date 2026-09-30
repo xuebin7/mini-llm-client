@@ -1,10 +1,10 @@
 [project]
 name = "mini-llm-client"
 version = "0.1.0"
-description = "Add your description here"
+description = "A minimal LLM client and agent runtime for learning and experimentation"
 readme = "README.md"
 authors = [
-    { name = "developer", email = "developer@medinc.cn" }
+    { name = "developer", email = "xuebin7@163.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
