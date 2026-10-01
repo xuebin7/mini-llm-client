@@ -1,6 +1,6 @@
 """Synchronous client for Chat Completions-compatible APIs."""
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal, TypeVar
 
@@ -43,7 +43,7 @@ class LLMClient:
         return payload
 
     @contextmanager
-    def _translate_timeout(self) -> Iterator[None]:
+    def _translate_timeout(self) -> Generator[None]:
         """Preserve the HTTPX cause while exposing a consistent SDK exception."""
         try:
             yield
@@ -93,7 +93,7 @@ class LLMClient:
             model=data.get("model"),
         )
 
-    def stream(self, request: ChatRequest) -> Iterator[str]:
+    def stream(self, request: ChatRequest) -> Generator[str]:
         """Yield text without retrying; replay could duplicate delivered chunks.
 
         Exhaust or explicitly close the iterator to release the connection.

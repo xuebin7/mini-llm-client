@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, cast
 
 from mini_llm.models import ToolCall
 from mini_llm.tools.executor import ToolExecutor, ToolResult
@@ -10,7 +10,7 @@ async def execute_tool_call(
     executor: ToolExecutor,
 ) -> ToolResult:
     try:
-        arguments = json.loads(tool_call.arguments)
+        raw_arguments = json.loads(tool_call.arguments)
     except json.JSONDecodeError as exc:
         return ToolResult(
             tool_name=tool_call.name,
@@ -18,12 +18,14 @@ async def execute_tool_call(
             error=f"Invalid tool arguments JSON: {exc}",
         )
 
-    if not isinstance(arguments, dict):
+    if not isinstance(raw_arguments, dict):
         return ToolResult(
             tool_name=tool_call.name,
             success=False,
             error="Tool arguments must be a JSON object",
         )
+
+    arguments = cast(dict[str, Any], raw_arguments)
 
     return await executor.execute(
         tool_name=tool_call.name,

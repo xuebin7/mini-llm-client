@@ -1,19 +1,21 @@
 from mini_llm.context.llm_summarizer import LLMSummarizer
-
-
-class FakeResponse:
-    def __init__(self, text: str) -> None:
-        self.text = text
+from mini_llm.models import ResponseRequest, ResponseResult
 
 
 class FakeClient:
     def __init__(self) -> None:
         self.last_request = None
 
-    def responses(self, request):
+    def responses(self, request: ResponseRequest) -> ResponseResult:
         self.last_request = request
 
-        return FakeResponse("The user wants to fix a login bug.")
+        return ResponseResult(
+            text="The user wants to fix a login bug.",
+            tool_calls=[],
+            model="test-model",
+            response_id="response-test",
+            output=[],
+        )
 
 
 def test_llm_summarizer_returns_response_text():
@@ -70,7 +72,11 @@ def test_llm_summarizer_prompt_contains_summary_instructions():
 
     summarizer.summarize([{"role": "user", "content": "hello"}])
 
+    assert client.last_request is not None
+
     prompt = client.last_request.input
+
+    assert isinstance(prompt, str)
 
     assert "user's goal" in prompt
     assert "failed attempts" in prompt

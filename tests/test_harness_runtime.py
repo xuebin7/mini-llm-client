@@ -1,57 +1,9 @@
 import pytest
 
-from mini_llm.harness.events import Event, EventType
+from mini_llm.harness.events import EventType
 from mini_llm.harness.models import Thread, Turn, TurnStatus
 from mini_llm.harness.runtime import MiniHarness
-from mini_llm.harness.sink import EventSink
-
-
-class FakeAgentLoop:
-    def __init__(self):
-        self.calls = []
-
-    async def run(
-        self,
-        user_input: str,
-        thread_id: str,
-        turn_id: str,
-        event_sink: EventSink | None = None,
-    ) -> str:
-        if event_sink is not None:
-            await event_sink.emit(
-                Event(
-                    type=EventType.TURN_STARTED,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                )
-            )
-        self.calls.append(
-            {
-                "user_input": user_input,
-                "thread_id": thread_id,
-                "turn_id": turn_id,
-            }
-        )
-        if event_sink is not None:
-            await event_sink.emit(
-                Event(
-                    type=EventType.TURN_COMPLETED,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                )
-            )
-        return "ok"
-
-
-class FailingAgentLoop:
-    async def run(
-        self,
-        user_input: str,
-        thread_id: str,
-        turn_id: str,
-        event_sink: EventSink | None = None,
-    ) -> str:
-        raise RuntimeError("boom")
+from tests.fakes import FailingAgentLoop, FakeAgentLoop
 
 
 def test_harness_can_create_thread():
@@ -209,3 +161,60 @@ async def test_harness_returns_events_after_succeed():
     assert all(event.turn_id == result2.turn.id for event in result2.events)
 
     assert result1.events is not result2.events
+
+
+def test_create_thread_registers_thread():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    thread = harness.create_thread()
+
+    assert harness.get_thread(thread.id) == thread
+
+
+def test_get_unknown_thread_returns_none():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    assert harness.get_thread("unknown") is None
+
+
+def test_list_threads_empty_initially():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    assert harness.list_threads() == []
+
+
+def test_list_threads_return_created_threads():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    thread1 = harness.create_thread()
+    thread2 = harness.create_thread()
+
+    assert harness.list_threads() == [thread1, thread2]
+
+
+@pytest.mark.asyncio
+async def test_run_turn_by_id():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    thread = harness.create_thread()
+
+    result = await harness.run_turn_by_id(
+        thread_id=thread.id,
+        user_input="hello",
+    )
+
+    assert result.output == "ok"
+    assert result.turn.thread_id == thread.id
+    assert result.turn.id.startswith("turn-")
+    assert len(thread.turns) == 1
+
+
+@pytest.mark.asyncio
+async def test_run_turn_by_unknown_thread_id_raises():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+
+    with pytest.raises(ValueError, match="Thread not found"):
+        await harness.run_turn_by_id(
+            thread_id="unknown",
+            user_input="hello",
+        )

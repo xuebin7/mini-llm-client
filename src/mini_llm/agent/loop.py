@@ -1,11 +1,10 @@
 from uuid import uuid4
 
-from mini_llm.agent.protocols import ResponsesClient
+from mini_llm.agent.protocols import ContextManagerProtocol, ResponsesClient
 from mini_llm.agent.runtime import (
     execute_tool_call,
     tool_result_to_output,
 )
-from mini_llm.context.manager import ContextManager
 from mini_llm.harness.events import Event, EventType
 from mini_llm.harness.sink import EventSink
 from mini_llm.models import ResponseRequest
@@ -18,7 +17,7 @@ class AgentLoop:
         self,
         client: ResponsesClient,
         registry: ToolRegistry,
-        context_manager: ContextManager,
+        context_manager: ContextManagerProtocol,
         *,
         model: str,
         event_sink: EventSink | None = None,
@@ -63,7 +62,7 @@ class AgentLoop:
             event_sink=event_sink,
         )
 
-        input_items: str | list[dict] = user_input
+        input_items: str | list[dict[str, object]] = user_input
         final_result: str | None = None
 
         for step in range(self.max_steps):

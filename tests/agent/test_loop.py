@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from mcp import StdioServerParameters
@@ -78,7 +79,10 @@ class FakeContextManager:
         self.prepare_called = False
         self.truncate_called = False
 
-    def prepare(self, items):
+    def prepare(
+        self,
+        items: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         self.prepare_called = True
         return items
 
