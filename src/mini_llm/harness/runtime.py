@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
 from mini_llm.harness.collector import CollectingEventSink
+from mini_llm.harness.fanout_sink import FanoutEventSink
 from mini_llm.harness.models import Thread, Turn, TurnResult, TurnStatus
 from mini_llm.harness.protocol import AgentLoopProtocol
+from mini_llm.harness.sink import EventSink
 
 
 class MiniHarness:
@@ -28,11 +30,20 @@ class MiniHarness:
         self,
         thread: Thread,
         user_input: str,
+        event_sink: EventSink | None = None,
     ) -> TurnResult:
         turn = Turn(thread_id=thread.id)
         thread.turns.append(turn)
 
-        sink = CollectingEventSink()
+        collector = CollectingEventSink()
+
+        if event_sink is None:
+            sink: EventSink = collector
+        else:
+            sink = FanoutEventSink(
+                collector,
+                event_sink,
+            )
 
         try:
             output = await self.agent_loop.run(
@@ -52,13 +63,14 @@ class MiniHarness:
         return TurnResult(
             turn=turn,
             output=output,
-            events=sink.events,
+            events=collector.events,
         )
 
     async def run_turn_by_id(
         self,
         thread_id: str,
         user_input: str,
+        event_sink: EventSink | None = None,
     ) -> TurnResult:
         thread = self.get_thread(thread_id)
 
@@ -68,6 +80,7 @@ class MiniHarness:
         return await self.run_turn(
             thread=thread,
             user_input=user_input,
+            event_sink=event_sink,
         )
 
     def list_turns(self, thread: Thread) -> list[Turn]:

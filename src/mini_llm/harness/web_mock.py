@@ -1,8 +1,9 @@
+from collections.abc import AsyncIterator
 from typing import TypedDict
 
+from mini_llm.harness.app_server import AppServer
 from mini_llm.harness.events import Event
 from mini_llm.harness.models import TurnStatus
-from mini_llm.harness.runtime import MiniHarness
 
 
 class MockWebResponse(TypedDict):
@@ -14,19 +15,18 @@ class MockWebResponse(TypedDict):
 
 
 class MockWebClient:
-    def __init__(self, harness: MiniHarness) -> None:
-        self.harness = harness
+    def __init__(self, server: AppServer) -> None:
+        self.server = server
 
     def create_thread(self) -> str:
-        thread = self.harness.create_thread()
-        return thread.id
+        return self.server.create_thread()
 
     async def send_message(
         self,
         thread_id: str,
         message: str,
     ) -> MockWebResponse:
-        result = await self.harness.run_turn_by_id(
+        result = await self.server.run_turn(
             thread_id=thread_id,
             user_input=message,
         )
@@ -38,3 +38,14 @@ class MockWebClient:
             "status": result.turn.status,
             "events": result.events,
         }
+
+    async def stream_sse(
+        self,
+        thread_id: str,
+        message: str,
+    ) -> AsyncIterator[str]:
+        async for chunk in self.server.stream_turn(
+            thread_id=thread_id,
+            user_input=message,
+        ):
+            yield chunk
