@@ -6,11 +6,17 @@ from mini_llm.harness.models import TurnResult
 from mini_llm.harness.queue_sink import QueueEventSink
 from mini_llm.harness.runtime import MiniHarness
 from mini_llm.harness.sse import encode_sse
+from mini_llm.harness.stream_registry import StreamRegistry
 
 
 class AppServer:
-    def __init__(self, harness: MiniHarness) -> None:
+    def __init__(
+        self,
+        harness: MiniHarness,
+        stream_registry: StreamRegistry | None = None,
+    ) -> None:
         self.harness = harness
+        self.stream_registry = stream_registry or StreamRegistry()
 
     def create_thread(self) -> str:
         thread = self.harness.create_thread()
@@ -54,13 +60,33 @@ class AppServer:
 
         await task
 
-    async def open_stream(
+    def create_stream(
         self,
+        stream_id: str,
         thread_id: str,
         user_input: str,
-    ) -> AsyncIterator[str]:
-        async for chunk in self.stream_turn(
+    ) -> None:
+        self.stream_registry.register(
+            stream_id=stream_id,
             thread_id=thread_id,
             user_input=user_input,
-        ):
-            yield chunk
+        )
+
+    async def open_stream(
+        self,
+        stream_id: str,
+    ) -> AsyncIterator[str]:
+        stream = self.stream_registry.get(stream_id)
+
+        if stream is None:
+            raise ValueError(f"Stream not found: {stream_id}")
+
+        try:
+            async for chunk in self.stream_turn(
+                thread_id=stream.thread_id,
+                user_input=stream.user_input,
+            ):
+                yield chunk
+
+        finally:
+            self.stream_registry.remove(stream_id)

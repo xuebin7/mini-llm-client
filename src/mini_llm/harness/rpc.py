@@ -84,6 +84,12 @@ class RPCDispatcher:
 
             stream_id = f"stream-{request.id}"
 
+            self.server.create_stream(
+                stream_id=stream_id,
+                thread_id=thread_id,
+                user_input=user_input,
+            )
+
             return RPCResponse(
                 id=request.id,
                 result={

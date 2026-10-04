@@ -56,3 +56,27 @@ async def test_app_server_can_stream_turn():
     assert chunks[0].startswith("event: turn_started\n")
 
     assert chunks[-1].startswith("event: turn_completed\n")
+
+
+@pytest.mark.asyncio
+async def test_app_server_can_open_registered_stream():
+    harness = MiniHarness(agent_loop=FakeAgentLoop())
+    server = AppServer(harness=harness)
+
+    thread_id = server.create_thread()
+
+    server.create_stream(
+        stream_id="stream-1",
+        thread_id=thread_id,
+        user_input="hello",
+    )
+
+    chunks: list[str] = []
+
+    async for chunk in server.open_stream("stream-1"):
+        chunks.append(chunk)
+
+    assert chunks[0].startswith("event: turn_started\n")
+    assert chunks[-1].startswith("event: turn_completed\n")
+
+    assert server.stream_registry.get("stream-1") is None
