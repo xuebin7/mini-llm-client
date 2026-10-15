@@ -6,9 +6,10 @@ from mcp import StdioServerParameters
 
 from mini_llm.mcp_integration.adapter import mcp_tool_to_schema, register_mcp_tools
 from mini_llm.mcp_integration.client import MCPClient
-from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
+from mini_llm.tools.builtin.read_file import create_read_file_tool
 from mini_llm.tools.executor import ToolExecutor
 from mini_llm.tools.registry import ToolRegistry
+from mini_llm.workspace import Workspace
 
 
 @pytest.mark.asyncio
@@ -182,7 +183,7 @@ async def test_native_and_mcp_tools_share_same_executor(tmp_path: Path):
     registry = ToolRegistry()
 
     # 按你 Week 2 的现有方式注册一个 Native Tool
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     server_params = StdioServerParameters(
         command=sys.executable,

@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from mini_llm.tools.builtin.read_file import read_file
+from mini_llm.tools.builtin.read_file import (
+    create_read_file_handler,
+    create_read_file_tool,
+    read_file,
+)
+from mini_llm.tools.executor import ToolExecutor
+from mini_llm.tools.registry import ToolRegistry
+from mini_llm.workspace import Workspace
 
 
 @pytest.fixture
@@ -72,3 +79,88 @@ def test_invalid_line_number(
 def test_start_line_greater_than_end_line(sample_file: Path):
     with pytest.raises(ValueError, match="start_line must be <= end_line"):
         read_file(str(sample_file), start_line=4, end_line=2)
+
+
+def test_read_file_rejects_outside_workspace(tmp_path: Path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+
+    secret_file = tmp_path / "secret.txt"
+    secret_file.write_text("secret", encoding="utf-8")
+
+    handler = create_read_file_handler(Workspace(workspace_root))
+
+    with pytest.raises(ValueError):
+        handler("../secret.txt")
+
+
+def test_read_file_handler_reads_inside_workspace(tmp_path: Path):
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text("hello", encoding="utf-8")
+
+    workspace = Workspace(tmp_path)
+    handler = create_read_file_handler(workspace)
+
+    result = handler("hello.txt")
+
+    assert result == "hello"
+
+
+def test_create_read_file_tool(tmp_path: Path):
+    workspace = Workspace(tmp_path)
+
+    tool = create_read_file_tool(workspace)
+
+    assert tool.name == "read_file"
+    assert tool.handler is not None
+
+
+def test_read_file_tool_reads_from_workspace(tmp_path: Path):
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text("hello", encoding="utf-8")
+
+    tool = create_read_file_tool(Workspace(tmp_path))
+
+    result = tool.handler(path="hello.txt")
+
+    assert result == "hello"
+
+
+@pytest.mark.asyncio
+async def test_executor_reads_file_inside_workspace(tmp_path: Path):
+    file_path = tmp_path / "hello.txt"
+    file_path.write_text("hello", encoding="utf-8")
+
+    registry = ToolRegistry()
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
+
+    executor = ToolExecutor(registry)
+
+    result = await executor.execute(
+        "read_file",
+        {"path": "hello.txt"},
+    )
+
+    assert result.success == True
+    assert result.output == "hello"
+
+
+@pytest.mark.asyncio
+async def test_executor_rejects_file_outside_workspace(tmp_path: Path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+
+    secrect_file = tmp_path / "secret.txt"
+    secrect_file.write_text("secret", encoding="utf-8")
+
+    registry = ToolRegistry()
+    registry.register(create_read_file_tool(Workspace(workspace_root)))
+
+    executor = ToolExecutor(registry)
+
+    result = await executor.execute(
+        "read_file",
+        {"path": "../secret.txt"},
+    )
+
+    assert result.success == False

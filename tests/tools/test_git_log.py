@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from mini_llm.tools.builtin.git_log import git_log
+from mini_llm.tools.builtin.git_log import create_git_log_handler, git_log
+from mini_llm.workspace import Workspace
 
 
 def test_import_outside_repository(tmp_path: Path):
@@ -15,7 +16,7 @@ def test_import_outside_repository(tmp_path: Path):
             "-c",
             (
                 "import sys; sys.path.insert(0, sys.argv[1]); "
-                + "from mini_llm.tools.builtin.git_log import GIT_LOG_TOOL"
+                + "from mini_llm.tools.builtin.git_log import create_git_log_tool"
             ),
             str(source_path),
         ],
@@ -71,3 +72,13 @@ def test_git_log(tmp_path: Path, subject: str):
     assert result[0]["subject"] == subject
     assert result[0]["hash"]
     assert result[0]["date"]
+
+
+def test_git_log_handler_rejects_outside_workspace(tmp_path: Path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+
+    handler = create_git_log_handler(Workspace(workspace_root))
+
+    with pytest.raises(ValueError):
+        handler("../")

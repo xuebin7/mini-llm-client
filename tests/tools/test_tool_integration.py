@@ -3,32 +3,40 @@ from pathlib import Path
 
 import pytest
 
-from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
-from mini_llm.tools.builtin.search_code import SEARCH_CODE_TOOL
+from mini_llm.tools.builtin.read_file import create_read_file_tool
+from mini_llm.tools.builtin.search_code import create_search_code_tool
 from mini_llm.tools.executor import ToolExecutor
 from mini_llm.tools.registry import ToolRegistry
+from mini_llm.workspace import Workspace
 
 
-def test_builtin_tools_are_json_serializable():
+def test_builtin_tools_are_json_serializable(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
-    registry.register(SEARCH_CODE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
+    registry.register(create_search_code_tool(Workspace(tmp_path)))
 
     tools = registry.to_openai_tools()
 
     assert json.loads(json.dumps(tools)) == tools
 
 
-def test_builtin_tools_use_responses_api_format():
+def test_builtin_tools_use_responses_api_format(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
-    registry.register(SEARCH_CODE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
+    registry.register(create_search_code_tool(Workspace(tmp_path)))
 
     tools = registry.to_openai_tools()
 
     assert len(tools) == 2
 
-    for exported, tool in zip(tools, (READ_FILE_TOOL, SEARCH_CODE_TOOL), strict=True):
+    for exported, tool in zip(
+        tools,
+        (
+            create_read_file_tool(Workspace(tmp_path)),
+            create_search_code_tool(Workspace(tmp_path)),
+        ),
+        strict=True,
+    ):
         assert set(exported) == {
             "type",
             "name",
@@ -49,7 +57,7 @@ async def test_execute_search_code(tmp_path: Path):
     file_path.write_text("class ToolExecutor:\n    pass\n", encoding="utf-8")
 
     registry = ToolRegistry()
-    registry.register(SEARCH_CODE_TOOL)
+    registry.register(create_search_code_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry)
 
@@ -64,7 +72,7 @@ async def test_execute_search_code(tmp_path: Path):
     assert result.success is True
     assert result.error is None
     assert len(result.output) == 1
-    assert result.output[0]["path"] == str(file_path)
+    assert result.output[0]["path"] == str(file_path.relative_to(tmp_path))
     assert result.output[0]["line"] == 1
 
 
@@ -74,7 +82,7 @@ async def test_execute_read_file(tmp_path: Path):
     file_path.write_text("hello\nworld\n", encoding="utf-8")
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry=registry)
 
@@ -91,7 +99,7 @@ async def test_execute_read_file(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_read_file_failure(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry=registry)
 

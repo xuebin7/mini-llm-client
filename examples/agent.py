@@ -1,10 +1,12 @@
 import asyncio
 import os
+from pathlib import Path
 
 from mini_llm.agent.loop import AgentLoop
 from mini_llm.client import LLMClient
 from mini_llm.context.factory import create_context_manager
 from mini_llm.tools.defaults import create_default_registry
+from mini_llm.workspace import Workspace
 
 
 async def main() -> None:
@@ -14,9 +16,15 @@ async def main() -> None:
         timeout=60,
     )
 
-    registry = create_default_registry()
+    project_root = Path(__file__).resolve().parent.parent
+    workspace = Workspace(project_root)
 
-    context_manager = create_context_manager(client=client, model="deepseek-flash")
+    registry = create_default_registry(workspace)
+
+    context_manager = create_context_manager(
+        client=client,
+        model="deepseek-flash",
+    )
 
     agent = AgentLoop(
         client=client,

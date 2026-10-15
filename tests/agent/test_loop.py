@@ -12,9 +12,10 @@ from mini_llm.harness.events import EventType
 from mini_llm.mcp_integration.adapter import register_mcp_tools
 from mini_llm.mcp_integration.client import MCPClient
 from mini_llm.models import ResponseResult, ToolCall
-from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
-from mini_llm.tools.builtin.search_code import SEARCH_CODE_TOOL
+from mini_llm.tools.builtin.read_file import create_read_file_tool
+from mini_llm.tools.builtin.search_code import create_search_code_tool
 from mini_llm.tools.registry import ToolRegistry
+from mini_llm.workspace import Workspace
 
 
 class FakeLLMClient:
@@ -100,7 +101,7 @@ async def test_agent_oog_executes_tool_returns_answer(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeLLMClient(file_path)
 
@@ -129,7 +130,7 @@ async def test_agent_loop_emits_tool_events(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeLLMClient(file_path)
 
@@ -145,7 +146,7 @@ async def test_agent_loop_emits_tool_events(tmp_path: Path):
         event_sink=sink,
     )
 
-    result = await agent.run("Read the file.")
+    await agent.run("Read the file.")
 
     assert [event.type for event in sink.events] == [
         EventType.TURN_STARTED,
@@ -258,8 +259,8 @@ async def test_agent_loop_recovers_from_tool_failure(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
-    registry.register(SEARCH_CODE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
+    registry.register(create_search_code_tool(Workspace(tmp_path)))
 
     client = FakeRecoveryLLMClient(tmp_path)
 
@@ -417,9 +418,9 @@ class FakeInfiniteToolClient:
 
 
 @pytest.mark.asyncio
-async def test_agent_loop_stops_at_max_steps():
+async def test_agent_loop_stops_at_max_steps(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeInfiniteToolClient()
 
@@ -550,7 +551,7 @@ async def test_agent_loop_can_use_native_and_mcp_tools(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     server_params = StdioServerParameters(
         command=sys.executable,
@@ -610,7 +611,7 @@ async def test_agent_loop_emits_turn_events(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeLLMClient(file_path)
 
@@ -655,7 +656,7 @@ async def test_run_event_sink_overrides_default_sink(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeLLMClient(file_path)
 
@@ -698,7 +699,7 @@ async def test_run_uses_default_sink_when_no_run_sink(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     client = FakeLLMClient(file_path)
 

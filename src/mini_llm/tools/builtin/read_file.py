@@ -1,10 +1,12 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from mini_llm.tools.schema import ToolSchema
+from mini_llm.workspace import Workspace
 
 
 def read_file(
-    path: str,
+    path: str | Path,
     start_line: int | None = None,
     end_line: int | None = None,
 ) -> str:
@@ -57,31 +59,47 @@ def read_file(
     return "".join(lines[start_index:end_index])
 
 
-READ_FILE_TOOL = ToolSchema(
-    name="read_file",
-    description=(
-        "Read a UTF-8 text file.Optionally read a specific inclusive line range."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {
-            "path": {
-                "type": "string",
-                "description": "Path to the file to read.",
+def create_read_file_handler(
+    workspace: Workspace,
+) -> Callable[..., str]:
+    def handler(
+        path: str,
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> str:
+        resolved_path = workspace.resolve_path(path)
+
+        return read_file(resolved_path, start_line, end_line)
+
+    return handler
+
+
+def create_read_file_tool(workspace: Workspace) -> ToolSchema:
+    return ToolSchema(
+        name="read_file",
+        description=(
+            "Read a UTF-8 text file.Optionally read a specific inclusive line range."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to the file to read.",
+                },
+                "start_line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional 1-based starting line number.",
+                },
+                "end_line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional 1-based ending line number, inclusive.",
+                },
             },
-            "start_line": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Optional 1-based starting line number.",
-            },
-            "end_line": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Optional 1-based ending line number, inclusive.",
-            },
+            "required": ["path"],
+            "additionalProperties": False,
         },
-        "required": ["path"],
-        "additionalProperties": False,
-    },
-    handler=read_file,
-)
+        handler=create_read_file_handler(workspace),
+    )

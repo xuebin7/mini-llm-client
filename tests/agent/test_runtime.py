@@ -5,9 +5,10 @@ import pytest
 
 from mini_llm.agent.runtime import execute_tool_call, tool_result_to_output
 from mini_llm.models import ToolCall
-from mini_llm.tools.builtin.read_file import READ_FILE_TOOL
+from mini_llm.tools.builtin.read_file import create_read_file_tool
 from mini_llm.tools.executor import ToolExecutor, ToolResult
 from mini_llm.tools.registry import ToolRegistry
+from mini_llm.workspace import Workspace
 
 
 @pytest.mark.asyncio
@@ -19,7 +20,7 @@ async def test_execute_tool_call(tmp_path: Path):
     )
 
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry=registry)
 
@@ -46,9 +47,9 @@ async def test_execute_tool_call(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_execute_tool_call_invalid_json():
+async def test_execute_tool_call_invalid_json(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry=registry)
 
@@ -69,9 +70,9 @@ async def test_execute_tool_call_invalid_json():
 
 
 @pytest.mark.asyncio
-async def test_execute_tool_call_arguments_must_be_object():
+async def test_execute_tool_call_arguments_must_be_object(tmp_path: Path):
     registry = ToolRegistry()
-    registry.register(READ_FILE_TOOL)
+    registry.register(create_read_file_tool(Workspace(tmp_path)))
 
     executor = ToolExecutor(registry=registry)
 

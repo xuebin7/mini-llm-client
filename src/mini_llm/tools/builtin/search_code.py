@@ -1,6 +1,8 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from mini_llm.tools.schema import ToolSchema
+from mini_llm.workspace import Workspace
 
 DEFAULT_EXCLUDE_DIRS = [
     ".git",
@@ -12,7 +14,7 @@ DEFAULT_EXCLUDE_DIRS = [
 
 def search_code(
     query: str,
-    path: str = ".",
+    path: str | Path = ".",
     max_results: int = 50,
 ) -> list[dict[str, str | int]]:
     """
@@ -42,8 +44,6 @@ def search_code(
 
     files = [root] if root.is_file() else root.rglob("*")
 
-    max_results: int = 50
-
     for file_path in files:
         if any(part in DEFAULT_EXCLUDE_DIRS for part in file_path.parts):
             continue
@@ -65,34 +65,67 @@ def search_code(
                 if len(results) >= max_results:
                     return results
 
+    return results
+
+
+def create_search_code_handler(
+    workspace: Workspace,
+) -> Callable[..., list[dict[str, str | int]]]:
+    def handler(
+        query: str,
+        path: str = ".",
+        max_results: int = 50,
+    ) -> list[dict[str, str | int]]:
+        resolved_path = workspace.resolve_path(path)
+
+        results = search_code(
+            query=query,
+            path=resolved_path,
+            max_results=max_results,
+        )
+
+        for result in results:
+            result_path = Path(str(result["path"])).resolve()
+            result["path"] = str(result_path.relative_to(workspace.root))
+
         return results
 
+    return handler
 
-SEARCH_CODE_TOOL = ToolSchema(
-    name="search_code",
-    description="Search text files recursively for a string.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Text to search for.",
+
+def create_search_code_tool(
+    workspace: Workspace,
+) -> ToolSchema:
+    return ToolSchema(
+        name="search_code",
+        description=(
+            "Search UTF-8 text files recursively for a string "
+            "within the current workspace."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Exact text to search for.",
+                },
+                "path": {
+                    "type": "string",
+                    "description": (
+                        "File or directory within the workspace to search."
+                    ),
+                    "default": ".",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50,
+                    "description": "Maximum number of matches to return.",
+                },
             },
-            "path": {
-                "type": "string",
-                "description": "File or directory to search.",
-                "default": ".",
-            },
-            "max_results": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 100,
-                "default": 50,
-                "description": "Maximum number of matches to return.",
-            },
+            "required": ["query"],
+            "additionalProperties": False,
         },
-        "required": ["query"],
-        "additionalProperties": False,
-    },
-    handler=search_code,
-)
+        handler=create_search_code_handler(workspace),
+    )

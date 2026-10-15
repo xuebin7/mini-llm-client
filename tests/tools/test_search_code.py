@@ -132,3 +132,19 @@ def test_search_code_ignore_binary_file(tmp_path: Path):
 
     assert len(result) == 1
     assert result[0]["path"] == str(text_file)
+
+
+def test_search_code_searches_multiple_files(tmp_path: Path):
+    file_a = tmp_path / "a.txt"
+    file_b = tmp_path / "b.txt"
+
+    file_a.write_text("file a: hehe", encoding="utf-8")
+    file_b.write_text("file b: needle", encoding="utf-8")
+
+    results = search_code(
+        "needle",
+        tmp_path,
+    )
+
+    assert len(results) == 1
+    assert str(results[0]["path"]).endswith("b.txt")
