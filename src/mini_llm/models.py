@@ -24,7 +24,7 @@ class ResponseRequest(BaseModel):
     model: str | None = None
     input: str | list[dict[str, Any]]
     tools: list[dict[str, Any]] | None = None
-    temerature: float | None = None
+    temperature: float | None = None
 
 
 class ToolCall(BaseModel):
